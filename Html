@@ -1,0 +1,332 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+void main() => runApp(InvestInFutureApp());
+
+class InvestInFutureApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Invest in Future',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: LoginScreen(),
+    );
+  }
+}
+
+class Transaction {
+  final String type;
+  final double amount;
+  final DateTime date;
+
+  Transaction({required this.type, required this.amount, required this.date});
+}
+
+class UserData extends ChangeNotifier {
+  double _balance = 0.0;
+  double _withdrawnToday = 0.0;
+  List<Transaction> _transactions = [];
+  String? _bankDetails;
+
+  double get balance => _balance;
+  double get withdrawnToday => _withdrawnToday;
+  List<Transaction> get transactions => _transactions;
+  String? get bankDetails => _bankDetails;
+
+  void deposit(double amount) {
+    _balance += amount;
+    _transactions.add(Transaction(
+      type: 'Deposit',
+      amount: amount,
+      date: DateTime.now(),
+    ));
+    notifyListeners();
+  }
+
+  void withdraw(double amount) {
+    if (_balance >= amount) {
+      _balance -= amount;
+      _withdrawnToday += amount;
+      _transactions.add(Transaction(
+        type: 'Withdrawal',
+        amount: amount,
+        date: DateTime.now(),
+      ));
+      notifyListeners();
+    }
+  }
+
+  void addBankDetails(String details) {
+    _bankDetails = details;
+    notifyListeners();
+  }
+
+  void resetDailyLimit() {
+    _withdrawnToday = 0.0;
+    notifyListeners();
+  }
+}
+
+class LoginScreen extends StatelessWidget {
+  final _phoneController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Login')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _phoneController,
+              decoration: InputDecoration(
+                labelText: 'Mobile Number',
+                prefixText: '+91 ',
+              ),
+              keyboardType: TextInputType.phone,
+              maxLength: 10,
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => DashboardScreen()),
+                );
+              },
+              child: Text('Login / Register'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DashboardScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = Provider.of<UserData>(context);
+    return Scaffold(
+      appBar: AppBar(title: Text('Dashboard')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Text('Withdrawable Balance',
+                        style: TextStyle(fontSize: 18)),
+                    Text('₹${user.balance.toStringAsFixed(2)}',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 10),
+                    Text('Daily Withdrawal Left: ₹${5000 - user.withdrawnToday}',
+                        style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ),
+            GridView.count(
+              shrinkWrap: true,
+              crossAxisCount: 2,
+              childAspectRatio: 3,
+              children: [
+                _buildActionButton('Deposit', Icons.account_balance, () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => DepositScreen()));
+                }),
+                _buildActionButton('Withdraw', Icons.money_off, () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => WithdrawScreen()));
+                }),
+                _buildActionButton('Plans', Icons.assessment, () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => InvestmentPlansScreen()));
+                }),
+                _buildActionButton('History', Icons.history, () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => TransactionHistoryScreen()));
+                }),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(String text, IconData icon, VoidCallback onPressed) {
+    return TextButton.icon(
+      icon: Icon(icon),
+      label: Text(text),
+      onPressed: onPressed,
+    );
+  }
+}
+
+class DepositScreen extends StatelessWidget {
+  final List<double> amounts = [2000, 5000, 10000, 50000];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Deposit')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('UPI ID: 7488958862@ybl',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 20),
+            Text('Select Deposit Amount:',
+                style: TextStyle(fontSize: 16)),
+            Wrap(
+              spacing: 10,
+              children: amounts.map((amount) {
+                return ActionChip(
+                  label: Text('₹${amount.toStringAsFixed(0)}'),
+                  onPressed: () {
+                    Provider.of<UserData>(context, listen: false).deposit(amount);
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+            ),
+            SizedBox(height: 20),
+            Text('Minimum deposit: ₹1000', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WithdrawScreen extends StatefulWidget {
+  @override
+  _WithdrawScreenState createState() => _WithdrawScreenState();
+}
+
+class _WithdrawScreenState extends State<WithdrawScreen> {
+  final _amountController = TextEditingController();
+  final _bankDetailsController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final user = Provider.of<UserData>(context);
+    return Scaffold(
+      appBar: AppBar(title: Text('Withdraw')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextFormField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Withdrawal Amount',
+                prefixText: '₹',
+              ),
+            ),
+            SizedBox(height: 20),
+            if (user.bankDetails == null)
+              TextFormField(
+                controller: _bankDetailsController,
+                decoration: InputDecoration(
+                  labelText: 'Bank Account Details',
+                  hintText: 'Account Number, IFSC Code',
+                ),
+              ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                final amount = double.tryParse(_amountController.text) ?? 0;
+                if (amount < 1000) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Minimum withdrawal is ₹1000')));
+                } else if (user.bankDetails == null &&
+                    _bankDetailsController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Bank details required')));
+                } else if (user.withdrawnToday + amount > 5000) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Daily withdrawal limit exceeded')));
+                } else {
+                  if (user.bankDetails == null) {
+                    user.addBankDetails(_bankDetailsController.text);
+                  }
+                  user.withdraw(amount);
+                  Navigator.pop(context);
+                }
+              },
+              child: Text('Withdraw Funds'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class InvestmentPlansScreen extends StatelessWidget {
+  final List<Map<String, dynamic>> plans = [
+    {'amount': 2000, 'return': 30},
+    {'amount': 5000, 'return': 33},
+    {'amount': 10000, 'return': 35},
+    {'amount': 50000, 'return': 40},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Investment Plans')),
+      body: ListView.builder(
+        itemCount: plans.length,
+        itemBuilder: (context, index) {
+          final plan = plans[index];
+          return ListTile(
+            title: Text('₹${plan['amount']} Investment'),
+            subtitle: Text('${plan['return']}% monthly returns'),
+            trailing: ElevatedButton(
+              onPressed: () {
+                Provider.of<UserData>(context, listen: false)
+                    .deposit(plan['amount'].toDouble());
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Invested ₹${plan['amount']}')),
+                );
+              },
+              child: Text('Invest'),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class TransactionHistoryScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = Provider.of<UserData>(context);
+    return Scaffold(
+      appBar: AppBar(title: Text('Transaction History')),
+      body: ListView.builder(
+        itemCount: user.transactions.length,
+        itemBuilder: (context, index) {
+          final transaction = user.transactions[index];
+          return ListTile(
+            title: Text('${transaction.type}: ₹${transaction.amount}'),
+            subtitle: Text(DateFormat('dd MMM yyyy HH:mm').format(transaction.date)),
+            trailing: Icon(transaction.type == 'Deposit'
+                ? Icons.arrow_downward
+                : Icons.arrow_upward,
+                color: transaction.type == 'Deposit' ? Colors.green : Colors.red),
+          );
+        },
+      ),
+    );
+  }
+}
